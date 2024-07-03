@@ -1,0 +1,2 @@
+# passman
+Terminal password manager
