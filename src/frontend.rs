@@ -31,6 +31,8 @@ pub mod frontend {
     };
 
     use super::Commands;
+use std::thread;
+use std::time::Duration;
 
     pub struct Frontend {
         pm: PasswordManager,
@@ -56,6 +58,7 @@ pub mod frontend {
                     println!("Login");
                     self.terminal.clear()?;
                     self.login();
+                    self.show_menu();
                 } else if command == Commands::Register {
                     let output = Command::new("clear").output().unwrap();
                     println!("{}", String::from_utf8_lossy(&output.stdout));
@@ -68,6 +71,17 @@ pub mod frontend {
             disable_raw_mode()?;
             stdout().execute(LeaveAlternateScreen)?;
             Ok(())
+        }
+
+        fn show_menu(&mut self) {
+            let mut should_quit = false;
+            while !should_quit {
+                self.terminal.draw(|f| ui_startup(f)).unwrap();
+                let command = self.handle_events().unwrap();
+                if command == Commands::Quit {
+                    should_quit = true;
+                }
+            }
         }
 
         fn handle_events(&mut self) -> io::Result<Commands> {
@@ -93,10 +107,22 @@ pub mod frontend {
             Ok(Commands::None)
         }
 
-        fn login(&mut self) {
+        fn login(&mut self) -> Result<bool, Box<dyn Error>>{
             let username: String = self.get_user_input("Login".to_string(), " Username: ".to_string(), false).unwrap_or_default();
             let password: String = self.get_user_input( "Login".to_string(), " Master password: ".to_string(), true).unwrap_or_default();
-            self.pm.login(&username, &password);
+            let result = self.pm.login(&username, &password);
+            match result {
+                Ok(_) => {
+                    self.terminal.draw(|f| display_(f, "Login successful", "Login"))?;
+                    Ok(true)
+
+                }
+                Err(e) => {
+                    self.terminal.draw(|f| display_(f, e.message.as_str(), "Login"))?;
+                    thread::sleep(Duration::from_secs(2));
+                    self.login()
+                }
+            }
         }
 
         fn get_user_input(&mut self, title: String, msg: String, encrypt: bool) -> Result<String, Box<dyn Error>> {

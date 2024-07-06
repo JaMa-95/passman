@@ -10,7 +10,7 @@ pub mod manager_module {
 
     #[derive(Debug)]
     pub struct PasswordManagerError {
-        message: String,
+        pub message: String,
     }
 
     impl PasswordManagerError {
