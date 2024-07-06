@@ -4,10 +4,11 @@ mod manager;
 mod database;
 mod password;
 mod frontend;
-use frontend::frontend::run;
+use frontend::frontend::Frontend;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    run();
+    let mut frontend = Frontend::new();
+    let _ = frontend.run();
 
     Ok(())
 }

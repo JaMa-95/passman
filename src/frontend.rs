@@ -32,7 +32,7 @@ pub mod frontend {
 
     use super::Commands;
 
-    struct Frontend {
+    pub struct Frontend {
         pm: PasswordManager,
         terminal: Terminal<CrosstermBackend<Stdout>>,
     }
@@ -48,23 +48,9 @@ pub mod frontend {
         pub fn run(&mut self) -> io::Result<()> {
             enable_raw_mode()?;
             stdout().execute(EnterAlternateScreen)?;
-    /*/
-            let mut pm: PasswordManager = PasswordManager::new();
-            let result: Result<(), PasswordManagerError> = pm.register("Jakob", "password");
-            match result {
-                Ok(_) => {
-                    println!("User registered {:?}", "Jakob");
-                    
-                    pm.add_password(&Password::new("Jakob", "rust.org", "rustpassword"));
-                    let password: Password = pm.get_password("rust.org");
-                    println!("{:?}", password);
-                }
-                Err(error) => println!("{}", error),
-            }
-    */
             let mut should_quit = false;
             while !should_quit {
-                self.terminal.draw(|f| self.ui_startup(f))?;
+                self.terminal.draw(ui_startup)?;
                 let command = self.handle_events()?;
                 if command == Commands::Login {
                     println!("Login");
@@ -84,7 +70,7 @@ pub mod frontend {
             Ok(())
         }
 
-        fn handle_events(self) -> io::Result<Commands> {
+        fn handle_events(&mut self) -> io::Result<Commands> {
             if event::poll(std::time::Duration::from_millis(50))? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
@@ -107,43 +93,20 @@ pub mod frontend {
             Ok(Commands::None)
         }
 
-        fn get_input(self) -> io::Result<KeyCode> {
-            loop {
-                if event::poll(std::time::Duration::from_millis(50))? {
-                    if let Event::Key(key) = event::read()? {
-                        return Ok(key.code);
-                    }
-                }
-            }
-        }
-        fn ui_startup(self, frame: &mut Frame) {
-            frame.render_widget(
-                Paragraph::new(" Login        [l] \n Register     [r] \n Quit         [q]").block(Block::bordered().title("Passman")),
-                frame.size(),
-            );
-        }
-
         fn login(&mut self) {
             let username: String = self.get_user_input("Login".to_string(), " Username: ".to_string(), false).unwrap_or_default();
             let password: String = self.get_user_input( "Login".to_string(), " Master password: ".to_string(), true).unwrap_or_default();
             self.pm.login(&username, &password);
         }
 
-        fn display_(self, frame: &mut Frame, msg: &str, title: &str) {
-            frame.render_widget(
-                Paragraph::new(msg).block(Block::bordered().title(title)),
-                frame.size(),
-            );
-        }
-
         fn get_user_input(&mut self, title: String, msg: String, encrypt: bool) -> Result<String, Box<dyn Error>> {
             let mut username: Input = Input::new();
             let mut should_quit = false;
             let mut msg_new = format!("{}{}", msg, username.message);
-            self.terminal.draw(|f| self.display_(f, &msg, &title))?;
+            self.terminal.draw(|f| display_(f, &msg, &title))?;
             while !should_quit {
                 
-                if let Ok(input) = self.get_input() {
+                if let Ok(input) = get_input() {
                     if input == KeyCode::Enter {
                         should_quit = true;
                     } else if input == KeyCode::Backspace {
@@ -154,7 +117,7 @@ pub mod frontend {
                             msg_new = format!("{}{}", msg, username.message);
                         }
                         self.terminal.clear()?;
-                        self.terminal.draw(|f| self.display_(f, &msg_new, &title))?;
+                        self.terminal.draw(|f| display_(f, &msg_new, &title))?;
                     } else if let KeyCode::Char(c) = input {
                         username.add(c);
                         if (encrypt) {
@@ -163,12 +126,36 @@ pub mod frontend {
                             msg_new = format!("{}{}", msg, username.message);
                         }
                         self.terminal.clear()?;
-                        self.terminal.draw(|f| self.display_(f, &msg_new, &title))?;
+                        self.terminal.draw(|f| display_(f, &msg_new, &title))?;
                     }
                 }
             }
             Ok(username.message)
         }
+    }
+
+    fn get_input() -> io::Result<KeyCode> {
+        loop {
+            if event::poll(std::time::Duration::from_millis(50))? {
+                if let Event::Key(key) = event::read()? {
+                    return Ok(key.code);
+                }
+            }
+        }
+    }
+
+    fn ui_startup(frame: &mut Frame) {
+        frame.render_widget(
+            Paragraph::new(" Login        [l] \n Register     [r] \n Quit         [q]").block(Block::bordered().title("Passman")),
+            frame.size(),
+        );
+    }
+
+    fn display_(frame: &mut Frame, msg: &str, title: &str) {
+        frame.render_widget(
+            Paragraph::new(msg).block(Block::bordered().title(title)),
+            frame.size(),
+        );
     }
 
     struct Input {
